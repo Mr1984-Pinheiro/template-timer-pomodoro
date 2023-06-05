@@ -7,110 +7,67 @@ import {
   
 } from './styles'
 
-
-import { createContext, useEffect, useState } from 'react'
-import { differenceInSeconds } from 'date-fns'
+import * as zod from 'zod'
 import { NewCycleForm } from './components/NewCycleeForm'
 import { CountDown } from './components/CountDown'
+import { FormProvider, useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useContext } from 'react'
+import { CyclesContext } from '../../contexts/CyclesContext'
 
+const newCycleFormValidationSchema = zod.object({
+  task: zod.string().min(1, 'Informe a tarefa'),
+  minutesAmount: zod
+    .number()
+    .min(1, 'O ciclo precisa ser de no mínimo 5 minutos.')
+    .max(60, 'O ciclo precisa ser de no máximo 60 minutos.'),
+})
 
-
-interface Cycle {
-  id: string
-  task: string
-  minutesAmount: number
-  startDate: Date
-  interruptedDate?: Date
-  finishedDate?: Date
-}
-
-interface CyclesContextType {
-  activeCycle: Cycle | undefined; 
-  activeCycleId: string | null;
-  markCurrentCycleAsFinished: () => void;
-}
-
-export const CyclesContext =  createContext({} as CyclesContextType )
+type NewCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
 
 export function Home() {
-  const [cycles, setCycles] = useState<Cycle[]>([])
-  const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
+  const {activeCycle, createNewCycle, interruptCurrentCycle } = useContext(CyclesContext)
 
-  // function handleCreateNewCycle(data: NewCycleFormData) {
-  //   const id = String(new Date().getTime())
 
-  //   const newCycle: Cycle = {
-  //     id,
-  //     task: data.task,
-  //     minutesAmount: data.minutesAmount,
-  //     startDate: new Date(),
-  //   }
+  const newCycleForm = useForm<NewCycleFormData>({
+    resolver: zodResolver(newCycleFormValidationSchema),
+    defaultValues: {
+      task: "",
+      minutesAmount: 0,
+    }
+  })
 
-  //   setCycles((state) => [...state, newCycle])
-  //   setActiveCycleId(id)
-  //   reset()
-  // }
+  const { handleSubmit, watch, reset} = newCycleForm
 
-  const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
-  
-  function markCurrentCycleAsFinished() {
-    setCycles((state) =>
-      state.map((cycle) => {
-        if (cycle.id === activeCycleId) {
-          return { ...cycle, finishedDate: new Date() }
-        } else {
-          return cycle
-        }
-      }),
-    )
-  }
+  function handleCreateNewCycle(data: NewCycleFormData) {
+    createNewCycle(data);
+    reset();
+   }  
 
-  
-
-  function handleInterruptCycle() {
-    setCycles(state => state.map((cycle) => {
-      if(cycle.id === activeCycleId) {
-        return { ...cycle, interruptedDate: new Date() }
-      }else {
-        return cycle
-      }
-    }),
-    )
-
-    setActiveCycleId(null)
-    
-  }
-  
-  
-
-  // const task = watch('task')
-  // const isSubmitDisable = !task
-
-  
+  const task = watch('task')
+  const isSubmitDisable = !task
 
   return (
     <HomeContainer>
-      <form /*onSubmit={handleSubmit(handleCreateNewCycle)}*/>
-
-        <CyclesContext.Provider value={{activeCycle, activeCycleId, markCurrentCycleAsFinished}} >
+      <form onSubmit={handleSubmit(handleCreateNewCycle)}>
         
-        {/* <NewCycleForm />    */}
-        <CountDown />  
-
-        </CyclesContext.Provider>   
+        <FormProvider {...newCycleForm}>
+          <NewCycleForm /> 
+        </FormProvider>
+           
+        <CountDown />            
 
         {activeCycle ? (
-          <StopCountdownButton onClick={handleInterruptCycle} type="button">
+          <StopCountdownButton onClick={interruptCurrentCycle} type="button">
             <HandPalm size={24} />
             Interromper
           </StopCountdownButton>
         ) : (
-          <StartCountdownButton /*disabled={isSubmitDisable}*/ type="submit">
+          <StartCountdownButton disabled={isSubmitDisable} type="submit">
             <Play size={24} />
             Começar
           </StartCountdownButton>
         )}
-
         
       </form>
     </HomeContainer>
